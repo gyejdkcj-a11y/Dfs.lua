@@ -330,7 +330,6 @@ end
 
 -- ──────────────────────────────────────────────────────────────
 -- SILENT AIM
--- ──────────────────────────────────────────────────────────────
 local function getBestTarget()
     local best, bestDist = nil, math.huge
     local center = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
@@ -338,14 +337,15 @@ local function getBestTarget()
     for _, player in ipairs(Players:GetPlayers()) do
         if player ~= LocalPlayer and isAlive(player) then
             if not cfg.team_check or isEnemy(player) then
-                local part = getChar(player) and getChar(player):FindFirstChild(cfg.aim_part)
-                if part then
-                    local screen, depth, onScreen = worldToViewport(part.Position)
+                local char = getChar(player)
+                local head = char and char:FindFirstChild("Head")
+                if head then
+                    local screen, depth, onScreen = worldToViewport(head.Position)
                     if onScreen and depth > 0 then
                         local d2 = (screen - center).Magnitude
                         if d2 < cfg.aim_fov and d2 < bestDist then
                             bestDist = d2
-                            best = part
+                            best     = head
                         end
                     end
                 end
@@ -355,23 +355,21 @@ local function getBestTarget()
     return best
 end
 
--- Silent aim через CFrame камеры — не двигает мышь, только луч идёт к цели
 local aimConnection
 local function startAim()
     if aimConnection then aimConnection:Disconnect() end
     aimConnection = RunService.RenderStepped:Connect(function()
         if not cfg.aim_enabled then return end
-        if not UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then return end
-
         local target = getBestTarget()
         if not target then return end
-
-        -- плавный поворот камеры к цели (silent — не через Mouse)
-        local targetCF = CFrame.new(Camera.CFrame.Position, target.Position)
-        Camera.CFrame = Camera.CFrame:Lerp(targetCF, cfg.aim_smoothness)
+        local camPos   = Camera.CFrame.Position
+        local direction = (target.Position - camPos).Unit
+        Camera.CFrame  = Camera.CFrame:Lerp(
+            CFrame.new(camPos, camPos + direction),
+            cfg.aim_smoothness
+        )
     end)
 end
-
 -- ──────────────────────────────────────────────────────────────
 -- PLAYER LIFECYCLE
 -- ──────────────────────────────────────────────────────────────
